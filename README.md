@@ -1,11 +1,24 @@
-<div align="center">
 
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
+# Contribution Hub - Developer Guide
 
-  <h1>Built with AI Studio</h2>
+This project follows a decoupled full-stack architecture simulated in a single-directory environment for ease of use.
 
-  <p>The fastest path from prompt to production with Gemini.</p>
+## Project Structure
+- `/backend`: **Simulated Node.js Environment**. Handles logic, validation, and data persistence using `localStorage` as a DB proxy.
+- `/frontend`: **React 19 Application**. Communicates with the backend exclusively through the `apiService.ts`.
+- `types.ts`: Shared schemas for both layers.
 
-  <a href="https://aistudio.google.com/apps">Start building</a>
+## Technical Separation
+In a real production environment:
+1. Move the `backend/` folder to a Node.js project. Use an Express/Fastify router to map the functions in `mockServer.ts` to HTTP endpoints.
+2. Replace `localStorage` with a database like PostgreSQL or MongoDB.
+3. Update `frontend/apiService.ts` to use real `fetch()` or `axios` calls to your Node.js server.
 
-</div>
+## Default Admin Credentials
+- **Jersey Number**: `ADMIN`
+- **Password**: `admin`
+
+## Development
+- Uses Tailwind CSS for high-fidelity UI.
+- React 19 for declarative components.
+- Modularized dashboard logic for scalability.
