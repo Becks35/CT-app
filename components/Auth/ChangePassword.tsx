@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { User } from '../../types';
-import { storageService } from '../../services/storageService';
+import { api } from '../../frontend/apiService';
 
 interface ChangePasswordProps {
   user: User;
@@ -12,66 +12,53 @@ const ChangePassword: React.FC<ChangePasswordProps> = ({ user, onSuccess }) => {
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (password.length < 4) {
-      setError('Password must be at least 4 characters long.');
-      return;
-    }
-    if (password !== confirm) {
-      setError('Passwords do not match.');
-      return;
-    }
+    if (password.length < 4) return setError('Password too short.');
+    if (password !== confirm) return setError('Passwords do not match.');
 
-    const users = storageService.getUsers();
-    const updatedUser = { ...user, password, isFirstLogin: false };
-    const updatedUsers = users.map(u => u.id === user.id ? updatedUser : u);
-    
-    storageService.saveUsers(updatedUsers);
-    storageService.setCurrentUser(updatedUser);
-    onSuccess(updatedUser);
+    setLoading(true);
+    try {
+      const updated = await api.updatePassword(user.id, password);
+      onSuccess(updated);
+    } catch (err) {
+      setError('Failed to update password.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
     <div className="max-w-md mx-auto bg-white p-8 rounded-xl shadow-md border-t-4 border-indigo-600">
-      <h2 className="text-2xl font-bold text-gray-800 mb-2">First Login Security</h2>
-      <p className="text-gray-600 mb-6 text-sm">Please update your temporary password to a secure one of your choice.</p>
+      <h2 className="text-2xl font-bold text-gray-800 mb-2">Secure Your Account</h2>
+      <p className="text-gray-600 mb-6 text-sm">Please update your temporary password to continue.</p>
 
       <form onSubmit={handleSubmit} className="space-y-4">
-        {error && (
-          <div className="bg-red-50 text-red-600 p-3 rounded-md text-xs font-medium border border-red-100">
-            {error}
-          </div>
-        )}
+        {error && <div className="text-red-600 text-xs font-bold">{error}</div>}
         
-        <div>
-          <label className="block text-sm font-semibold text-gray-700 mb-1">New Password</label>
-          <input
-            type="password"
-            required
-            className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-indigo-500 outline-none"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-          />
-        </div>
-
-        <div>
-          <label className="block text-sm font-semibold text-gray-700 mb-1">Confirm New Password</label>
-          <input
-            type="password"
-            required
-            className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-indigo-500 outline-none"
-            value={confirm}
-            onChange={(e) => setConfirm(e.target.value)}
-          />
-        </div>
+        <input
+          type="password"
+          placeholder="New Password"
+          className="w-full px-4 py-2 rounded-lg border focus:ring-2 focus:ring-indigo-500 outline-none"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+        />
+        <input
+          type="password"
+          placeholder="Confirm Password"
+          className="w-full px-4 py-2 rounded-lg border focus:ring-2 focus:ring-indigo-500 outline-none"
+          value={confirm}
+          onChange={(e) => setConfirm(e.target.value)}
+        />
 
         <button
           type="submit"
-          className="w-full bg-indigo-600 text-white font-bold py-3 rounded-lg hover:bg-indigo-700 transition-colors"
+          disabled={loading}
+          className="w-full bg-indigo-600 text-white font-bold py-3 rounded-lg hover:bg-indigo-700 disabled:opacity-50"
         >
-          Update Password
+          {loading ? 'Updating...' : 'Set New Password'}
         </button>
       </form>
     </div>

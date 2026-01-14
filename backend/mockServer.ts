@@ -24,7 +24,6 @@ const DEFAULT_SETTINGS = {
   automatedRemindersEnabled: true
 };
 
-// Simulated Database Access
 const db = {
   getUsers: (): User[] => {
     const data = localStorage.getItem(STORAGE_KEYS.USERS);
@@ -46,12 +45,12 @@ const db = {
   saveSettings: (settings: any) => localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(settings))
 };
 
-// "API Endpoints"
 export const mockServer = {
   login: async (jersey: string, pass: string): Promise<User> => {
     return new Promise((resolve, reject) => {
       setTimeout(() => {
-        const user = db.getUsers().find(u => u.jerseyNumber?.toUpperCase() === jersey.toUpperCase());
+        const users = db.getUsers();
+        const user = users.find(u => u.jerseyNumber?.toUpperCase() === jersey.toUpperCase());
         if (!user) return reject('User not found.');
         if (user.password !== pass) return reject('Incorrect password.');
         if (user.status !== UserStatus.APPROVED) return reject('Account pending manager approval.');
@@ -66,7 +65,8 @@ export const mockServer = {
         const users = db.getUsers();
         const newUser: User = {
           id: `u-${Date.now()}`,
-          name, email,
+          name, 
+          email,
           role: UserRole.CLIENT,
           status: UserStatus.PENDING,
           isFirstLogin: true,
@@ -87,15 +87,13 @@ export const mockServer = {
     });
   },
 
-  // Manager Actions
   getPendingApprovals: async () => db.getUsers().filter(u => u.status === UserStatus.PENDING),
   
   approveUser: async (userId: string, jersey: string, pass: string) => {
     const users = db.getUsers();
-    db.saveUsers(users.map(u => u.id === userId ? { ...u, status: UserStatus.APPROVED, jerseyNumber: jersey, password: pass } : u));
-    
-    // Auto-notify the user
-    await mockServer.sendNotification(userId, `Your registration has been approved! Your Jersey Number is ${jersey}. Please log in and update your password.`);
+    const updated = users.map(u => u.id === userId ? { ...u, status: UserStatus.APPROVED, jerseyNumber: jersey, password: pass } : u);
+    db.saveUsers(updated);
+    await mockServer.sendNotification(userId, `Approved! ID: ${jersey}. Login and update password.`);
   },
 
   rejectUser: async (userId: string) => {

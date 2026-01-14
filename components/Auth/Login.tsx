@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
-import { User, UserRole, UserStatus } from '../../types';
-import { storageService } from '../../services/storageService';
+import { User } from '../../types';
+import { api } from '../../frontend/apiService';
 
 interface LoginProps {
   onLoginSuccess: (user: User) => void;
@@ -12,45 +12,26 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess, onNavigateToRegister }) =
   const [jerseyNumber, setJerseyNumber] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    setLoading(true);
 
-    const users = storageService.getUsers();
-    const user = users.find(u => u.jerseyNumber?.toUpperCase() === jerseyNumber.toUpperCase());
-
-    if (!user) {
-      setError('Invalid Jersey Number or User not found.');
-      return;
+    try {
+      const user = await api.login(jerseyNumber, password);
+      onLoginSuccess(user);
+    } catch (err: any) {
+      setError(err || 'Login failed. Please check your credentials.');
+    } finally {
+      setLoading(false);
     }
-
-    if (user.password !== password) {
-      setError('Incorrect password.');
-      return;
-    }
-
-    if (user.status !== UserStatus.APPROVED) {
-      setError('Your registration is pending approval from the Manager.');
-      return;
-    }
-
-    onLoginSuccess(user);
   };
 
   return (
     <div className="max-w-md mx-auto bg-white p-8 rounded-xl shadow-2xl border border-gray-100">
       <div className="text-center mb-8">
-        <div className="flex justify-center mb-4">
-          <img 
-            src="logo.png" 
-            alt="Logo" 
-            className="w-20 h-20 object-contain"
-            onError={(e) => {
-              (e.target as HTMLImageElement).style.display = 'none';
-            }}
-          />
-        </div>
         <h2 className="text-3xl font-bold text-gray-800">Welcome Back</h2>
         <p className="text-gray-500 mt-2">Sign in to manage your contributions</p>
       </div>
@@ -67,7 +48,7 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess, onNavigateToRegister }) =
           <input
             type="text"
             required
-            className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all uppercase"
+            className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-indigo-500 outline-none transition-all uppercase"
             placeholder="E.G. JSY-123"
             value={jerseyNumber}
             onChange={(e) => setJerseyNumber(e.target.value)}
@@ -79,7 +60,7 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess, onNavigateToRegister }) =
           <input
             type="password"
             required
-            className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all"
+            className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
             placeholder="••••••••"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
@@ -88,9 +69,10 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess, onNavigateToRegister }) =
 
         <button
           type="submit"
-          className="w-full bg-indigo-600 text-white font-bold py-3 rounded-lg hover:bg-indigo-700 transition-colors shadow-lg"
+          disabled={loading}
+          className="w-full bg-indigo-600 text-white font-bold py-3 rounded-lg hover:bg-indigo-700 transition-colors shadow-lg disabled:opacity-50"
         >
-          Login
+          {loading ? 'Authenticating...' : 'Login'}
         </button>
       </form>
 
@@ -104,9 +86,6 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess, onNavigateToRegister }) =
             Register Here
           </button>
         </p>
-        <div className="mt-4 p-3 bg-indigo-50 rounded-lg text-xs text-indigo-700">
-          <p>Manager Default: <strong>ADMIN / admin</strong></p>
-        </div>
       </div>
     </div>
   );
