@@ -1,0 +1,23 @@
+
+{
+  "name": "CONTRIBUTION TEAM",
+  "short_name": "CT Portal",
+  "description": "Secure contribution and loan management portal.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f8fafc",
+  "theme_color": "#4f46e5",
+  "icons": [
+    {
+      "src": "logo.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "logo.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

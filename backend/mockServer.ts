@@ -1,48 +1,58 @@
 
-import { User, Payment, Notification, UserRole, UserStatus, PaymentStatus } from '../types';
+import { User, Payment, Notification, UserRole, UserStatus, PaymentStatus, Loan, PaymentType } from '../types';
+import { INITIAL_ADMINS } from '../constants';
 
 const STORAGE_KEYS = {
   USERS: 'hub_users',
   PAYMENTS: 'hub_payments',
   NOTIFICATIONS: 'hub_notifications',
-  SETTINGS: 'hub_settings'
-};
-
-const INITIAL_MANAGER: User = {
-  id: 'mgr-001',
-  name: 'Admin Manager',
-  email: 'admin@contributionteam.com',
-  jerseyNumber: 'ADMIN',
-  password: 'admin',
-  role: UserRole.MANAGER,
-  status: UserStatus.APPROVED,
-  isFirstLogin: false,
-  registrationDate: new Date().toISOString()
+  SETTINGS: 'hub_settings',
+  LOANS: 'hub_loans'
 };
 
 const DEFAULT_SETTINGS = {
   automatedRemindersEnabled: true
 };
 
+// Layer 1: BroadcastChannel for explicit internal events
+const syncChannel = new BroadcastChannel('CT_HUB_SYNC');
+
 const db = {
   getUsers: (): User[] => {
     const data = localStorage.getItem(STORAGE_KEYS.USERS);
     if (!data) {
-      localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify([INITIAL_MANAGER]));
-      return [INITIAL_MANAGER];
+      localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(INITIAL_ADMINS));
+      return INITIAL_ADMINS as User[];
     }
     return JSON.parse(data);
   },
-  saveUsers: (users: User[]) => localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(users)),
+  saveUsers: (users: User[]) => {
+    localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(users));
+    syncChannel.postMessage({ type: 'DATA_UPDATED', target: 'USERS' });
+  },
   getPayments: (): Payment[] => JSON.parse(localStorage.getItem(STORAGE_KEYS.PAYMENTS) || '[]'),
-  savePayments: (payments: Payment[]) => localStorage.setItem(STORAGE_KEYS.PAYMENTS, JSON.stringify(payments)),
+  savePayments: (payments: Payment[]) => {
+    localStorage.setItem(STORAGE_KEYS.PAYMENTS, JSON.stringify(payments));
+    syncChannel.postMessage({ type: 'DATA_UPDATED', target: 'PAYMENTS' });
+  },
   getNotifs: (): Notification[] => JSON.parse(localStorage.getItem(STORAGE_KEYS.NOTIFICATIONS) || '[]'),
-  saveNotifs: (notifs: Notification[]) => localStorage.setItem(STORAGE_KEYS.NOTIFICATIONS, JSON.stringify(notifs)),
+  saveNotifs: (notifs: Notification[]) => {
+    localStorage.setItem(STORAGE_KEYS.NOTIFICATIONS, JSON.stringify(notifs));
+    syncChannel.postMessage({ type: 'DATA_UPDATED', target: 'NOTIFICATIONS' });
+  },
   getSettings: () => {
     const data = localStorage.getItem(STORAGE_KEYS.SETTINGS);
     return data ? JSON.parse(data) : DEFAULT_SETTINGS;
   },
-  saveSettings: (settings: any) => localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(settings))
+  saveSettings: (settings: any) => {
+    localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(settings));
+    syncChannel.postMessage({ type: 'DATA_UPDATED', target: 'SETTINGS' });
+  },
+  getLoans: (): Loan[] => JSON.parse(localStorage.getItem(STORAGE_KEYS.LOANS) || '[]'),
+  saveLoans: (loans: Loan[]) => {
+    localStorage.setItem(STORAGE_KEYS.LOANS, JSON.stringify(loans));
+    syncChannel.postMessage({ type: 'DATA_UPDATED', target: 'LOANS' });
+  }
 };
 
 export const mockServer = {
@@ -53,8 +63,13 @@ export const mockServer = {
         const user = users.find(u => u.jerseyNumber?.toUpperCase() === jersey.toUpperCase());
         if (!user) return reject('User not found.');
         if (user.password !== pass) return reject('Incorrect password.');
-        if (user.status !== UserStatus.APPROVED) return reject('Account pending manager approval.');
-        resolve(user);
+        if (user.status === UserStatus.PENDING) return reject('Account pending manager approval.');
+        if (user.status === UserStatus.REJECTED) return reject('This account has been deactivated by an Admin.');
+        
+        const updated = users.map(u => u.id === user.id ? { ...u, lastLogin: new Date().toISOString() } : u);
+        db.saveUsers(updated);
+        
+        resolve({ ...user, lastLogin: new Date().toISOString() });
       }, 600);
     });
   },
@@ -87,8 +102,20 @@ export const mockServer = {
     });
   },
 
-  getPendingApprovals: async () => db.getUsers().filter(u => u.status === UserStatus.PENDING),
-  
+  deleteUser: async (userId: string) => {
+    const users = db.getUsers();
+    db.saveUsers(users.filter(u => u.id !== userId));
+    const payments = db.getPayments();
+    db.savePayments(payments.filter(p => p.clientId !== userId));
+    const loans = db.getLoans();
+    db.saveLoans(loans.filter(l => l.clientId !== userId));
+  },
+
+  resetUserPassword: async (userId: string, newPass: string) => {
+    const users = db.getUsers();
+    db.saveUsers(users.map(u => u.id === userId ? { ...u, password: newPass, isFirstLogin: true } : u));
+  },
+
   approveUser: async (userId: string, jersey: string, pass: string) => {
     const users = db.getUsers();
     const updated = users.map(u => u.id === userId ? { ...u, status: UserStatus.APPROVED, jerseyNumber: jersey, password: pass } : u);
@@ -98,7 +125,8 @@ export const mockServer = {
 
   rejectUser: async (userId: string) => {
     const users = db.getUsers();
-    db.saveUsers(users.filter(u => u.id !== userId));
+    const updated = users.map(u => u.id === userId ? { ...u, status: UserStatus.REJECTED } : u);
+    db.saveUsers(updated);
   },
 
   submitPayment: async (payment: Omit<Payment, 'id' | 'status' | 'date'>) => {
@@ -114,7 +142,78 @@ export const mockServer = {
 
   updatePaymentStatus: async (paymentId: string, status: PaymentStatus) => {
     const payments = db.getPayments();
+    const payment = payments.find(p => p.id === paymentId);
+    
+    if (payment && status === PaymentStatus.APPROVED && payment.type === PaymentType.LOAN_REPAYMENT && payment.loanId) {
+      const loans = db.getLoans();
+      const updatedLoans = loans.map(l => {
+        if (l.id === payment.loanId) {
+          const newBalance = Math.max(0, l.balance - payment.amount);
+          return { 
+            ...l, 
+            balance: newBalance,
+            status: newBalance <= 0 ? 'PAID' : 'ACTIVE' 
+          };
+        }
+        return l;
+      });
+      db.saveLoans(updatedLoans as Loan[]);
+    }
+
     db.savePayments(payments.map(p => p.id === paymentId ? { ...p, status } : p));
+  },
+
+  issueLoan: async (clientId: string, clientName: string, amount: number) => {
+    const loans = db.getLoans();
+    const upfrontInterest = amount * 0.05;
+    const disbursementAmount = amount - upfrontInterest;
+    
+    const openingDate = new Date();
+    const closingDate = new Date();
+    closingDate.setMonth(openingDate.getMonth() + 3);
+
+    const newLoan: Loan = {
+      id: `l-${Date.now()}`,
+      clientId,
+      clientName,
+      amount: amount, 
+      disbursementAmount: disbursementAmount,
+      interestAmount: upfrontInterest,
+      balance: amount,
+      openingDate: openingDate.toISOString(),
+      closingDate: closingDate.toISOString(),
+      status: 'ACTIVE'
+    };
+
+    db.saveLoans([...loans, newLoan]);
+    await mockServer.sendNotification(clientId, `Loan issued. Principal: ₦${amount.toLocaleString()}, Disbursed: ₦${disbursementAmount.toLocaleString()}. Next due: ${closingDate.toLocaleDateString()}`);
+  },
+
+  processInterest: async () => {
+    const loans = db.getLoans();
+    const now = new Date();
+    let updated = false;
+
+    const updatedLoans = loans.map(l => {
+      if (l.status === 'ACTIVE' && l.balance > 0 && new Date(l.closingDate) < now) {
+        updated = true;
+        const recurringInterest = l.balance * 0.05;
+        const newClosing = new Date(l.closingDate);
+        newClosing.setMonth(newClosing.getMonth() + 3);
+        
+        return {
+          ...l,
+          balance: l.balance + recurringInterest,
+          interestAmount: l.interestAmount + recurringInterest,
+          closingDate: newClosing.toISOString()
+        };
+      }
+      return l;
+    });
+
+    if (updated) {
+      db.saveLoans(updatedLoans);
+    }
   },
 
   sendNotification: async (recipientId: string, message: string) => {
@@ -127,10 +226,14 @@ export const mockServer = {
     db.saveSettings(settings);
   },
 
-  getAllData: async () => ({
-    users: db.getUsers(),
-    payments: db.getPayments(),
-    notifications: db.getNotifs(),
-    settings: db.getSettings()
-  })
+  getAllData: async () => {
+    await mockServer.processInterest();
+    return {
+      users: db.getUsers(),
+      payments: db.getPayments(),
+      notifications: db.getNotifs(),
+      settings: db.getSettings(),
+      loans: db.getLoans()
+    };
+  }
 };

@@ -30,37 +30,38 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess, onNavigateToRegister }) =
   };
 
   return (
-    <div className="max-w-md mx-auto bg-white p-8 rounded-xl shadow-2xl border border-gray-100">
-      <div className="text-center mb-8">
-        <h2 className="text-3xl font-bold text-gray-800">Welcome Back</h2>
-        <p className="text-gray-500 mt-2">Sign in to manage your contributions</p>
+    <div className="max-w-md mx-auto bg-white p-10 rounded-3xl shadow-2xl border border-slate-100">
+      <div className="mb-8">
+        <h2 className="text-2xl font-black text-slate-800">Sign In</h2>
+        <p className="text-slate-400 text-sm font-medium">Enter your credentials to access your dashboard.</p>
       </div>
 
-      <form onSubmit={handleLogin} className="space-y-6">
+      <form onSubmit={handleLogin} className="space-y-5">
         {error && (
-          <div className="bg-red-50 text-red-600 p-3 rounded-md text-sm font-medium border border-red-100">
+          <div className="bg-rose-50 text-rose-600 p-4 rounded-xl text-xs font-bold border border-rose-100 animate-pulse">
             {error}
           </div>
         )}
         
         <div>
-          <label className="block text-sm font-semibold text-gray-700 mb-1">Jersey Number / ID</label>
+          <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Member ID / Jersey #</label>
           <input
             type="text"
             required
-            className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-indigo-500 outline-none transition-all uppercase"
-            placeholder="E.G. JSY-123"
+            autoFocus
+            className="w-full px-5 py-4 rounded-2xl bg-slate-50 border-none focus:ring-2 focus:ring-indigo-600 transition-all uppercase font-bold text-slate-700 placeholder:text-slate-300"
+            placeholder="E.G. TEAM-01"
             value={jerseyNumber}
             onChange={(e) => setJerseyNumber(e.target.value)}
           />
         </div>
 
         <div>
-          <label className="block text-sm font-semibold text-gray-700 mb-1">Password</label>
+          <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Password</label>
           <input
             type="password"
             required
-            className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
+            className="w-full px-5 py-4 rounded-2xl bg-slate-50 border-none focus:ring-2 focus:ring-indigo-600 transition-all font-bold text-slate-700 placeholder:text-slate-300"
             placeholder="••••••••"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
@@ -70,20 +71,20 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess, onNavigateToRegister }) =
         <button
           type="submit"
           disabled={loading}
-          className="w-full bg-indigo-600 text-white font-bold py-3 rounded-lg hover:bg-indigo-700 transition-colors shadow-lg disabled:opacity-50"
+          className="w-full bg-slate-900 text-white font-black py-5 rounded-2xl hover:bg-slate-800 transition-all shadow-xl disabled:opacity-50 active:scale-[0.98]"
         >
-          {loading ? 'Authenticating...' : 'Login'}
+          {loading ? 'Authenticating...' : 'Secure Login'}
         </button>
       </form>
 
-      <div className="mt-8 text-center border-t pt-6">
-        <p className="text-sm text-gray-600">
+      <div className="mt-10 text-center border-t border-slate-50 pt-8">
+        <p className="text-sm text-slate-500 font-medium">
           New to the team?{' '}
           <button
             onClick={onNavigateToRegister}
-            className="text-indigo-600 font-semibold hover:underline"
+            className="text-indigo-600 font-black hover:text-indigo-700 transition-colors"
           >
-            Register Here
+            Request Access
           </button>
         </p>
       </div>

@@ -1,6 +1,7 @@
 
 import { User, Payment, Notification, UserRole, UserStatus, PaymentStatus } from '../types';
-import { INITIAL_MANAGER } from '../constants';
+// Fix: INITIAL_MANAGER was not exported from constants. Replacing with INITIAL_ADMINS.
+import { INITIAL_ADMINS } from '../constants';
 
 const KEYS = {
   USERS: 'ch_users',
@@ -13,7 +14,8 @@ export const storageService = {
   getUsers: (): User[] => {
     const data = localStorage.getItem(KEYS.USERS);
     if (!data) {
-      const initial = [INITIAL_MANAGER];
+      // Fix: INITIAL_ADMINS is already an array of users.
+      const initial = INITIAL_ADMINS as User[];
       localStorage.setItem(KEYS.USERS, JSON.stringify(initial));
       return initial;
     }

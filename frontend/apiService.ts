@@ -14,7 +14,8 @@ export const api = {
     return {
       payments: data.payments.filter(p => p.clientId === clientId),
       notifications: data.notifications.filter(n => n.recipientId === clientId || n.recipientId === 'ALL'),
-      settings: data.settings
+      settings: data.settings,
+      loans: data.loans.filter(l => l.clientId === clientId)
     };
   },
 
@@ -22,16 +23,21 @@ export const api = {
     const data = await mockServer.getAllData();
     return {
       pendingUsers: data.users.filter(u => u.status === 'PENDING'),
+      allUsers: data.users,
       activeClients: data.users.filter(u => u.status === 'APPROVED' && u.role === 'CLIENT'),
       pendingPayments: data.payments.filter(p => p.status === 'PENDING'),
       allPayments: data.payments,
-      settings: data.settings
+      settings: data.settings,
+      allLoans: data.loans
     };
   },
 
   approveClient: mockServer.approveUser,
   rejectClient: mockServer.rejectUser,
+  deleteUser: mockServer.deleteUser,
+  adminResetPassword: mockServer.resetUserPassword,
   processPayment: mockServer.updatePaymentStatus,
   broadcast: mockServer.sendNotification,
-  updateSettings: mockServer.updateSettings
+  updateSettings: mockServer.updateSettings,
+  issueLoan: mockServer.issueLoan
 };
